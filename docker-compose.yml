@@ -7,3 +7,37 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+
+  postgres:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  order-api:
+    build: ./src/OrderService
+    ports:
+      - "5000:8080"
+    depends_on:
+      - rabbitmq
+      - postgres
+
+  stock-consumer:
+    build: ./src/StockConsumer
+    depends_on:
+      - rabbitmq
+      - postgres
+
+  payment-consumer:
+    build: ./src/PaymentConsumer
+    depends_on:
+      - rabbitmq
+
+  notification-consumer:
+    build: ./src/NotificationConsumer
+    depends_on:
+      - rabbitmq
