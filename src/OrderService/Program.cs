@@ -1,5 +1,6 @@
 using Contracts;
 using MassTransit;
+using OrderService;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,6 +9,8 @@ builder.Services.AddOpenApi();
 // --- MassTransit setup ---
 builder.Services.AddMassTransit(x =>
 {
+    x.AddConsumer<PaymentSucceededConsumer>();
+
     x.UsingRabbitMq((context, cfg) =>
     {
         cfg.Host("localhost", "/", h =>
@@ -15,6 +18,7 @@ builder.Services.AddMassTransit(x =>
             h.Username("guest");
             h.Password("guest");
         });
+         cfg.ConfigureEndpoints(context);
     });
 });
 
