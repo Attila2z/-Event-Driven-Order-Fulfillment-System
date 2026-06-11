@@ -17,6 +17,7 @@ builder.Services.AddMassTransit(x =>
 
         cfg.ReceiveEndpoint("shipping-service", e =>
         {
+            e.UseMessageRetry(r => r.Interval(3, TimeSpan.FromSeconds(2)));
             e.ConfigureConsumer<OrderConfirmedConsumer>(context);
         });
     });
