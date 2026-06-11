@@ -17,9 +17,33 @@ public class OrderPlacedConsumer : IConsumer<OrderPlaced>
         var order = context.Message;
 
         _logger.LogInformation(
-            "STOCK received OrderPlaced — OrderId: {OrderId}, CorrelationId: {CorrelationId}, Items: {Count}",
-            order.OrderId, order.CorrelationId, order.Items.Count);
+            "STOCK received OrderPlaced — OrderId: {OrderId}, CorrelationId: {CorrelationId}",
+            order.OrderId, order.CorrelationId);
 
-        await Task.CompletedTask;
+        // Decide if we can reserve. For the demo, any item with
+        // ProductId "OUT-OF-STOCK" fails; everything else succeeds.
+        var canReserve = order.Items.All(item => item.ProductId != "OUT-OF-STOCK");
+
+        if (canReserve)
+        {
+            _logger.LogInformation("STOCK reserved for OrderId: {OrderId}", order.OrderId);
+
+            await context.Publish(new StockReserved
+            {
+                OrderId = order.OrderId,
+                CorrelationId = order.CorrelationId
+            });
+        }
+        else
+        {
+            _logger.LogWarning("STOCK unavailable for OrderId: {OrderId}", order.OrderId);
+
+            await context.Publish(new StockUnavailable
+            {
+                OrderId = order.OrderId,
+                CorrelationId = order.CorrelationId,
+                Reason = "One or more items are out of stock"
+            });
+        }
     }
 }
