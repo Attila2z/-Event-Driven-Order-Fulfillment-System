@@ -1,41 +1,52 @@
+using Contracts;
+using MassTransit;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+
+// --- MassTransit setup ---
+builder.Services.AddMassTransit(x =>
+{
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        cfg.Host("localhost", "/", h =>
+        {
+            h.Username("guest");
+            h.Password("guest");
+        });
+    });
+});
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
 
-app.UseHttpsRedirection();
-
-var summaries = new[]
+// --- Place order endpoint ---
+app.MapPost("/orders", async (PlaceOrderRequest request, IPublishEndpoint publishEndpoint) =>
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+    var orderId = Guid.NewGuid();
+    var correlationId = Guid.NewGuid();
 
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
+    // In a real system we'd persist the order as "Pending" here first.
+
+    await publishEndpoint.Publish(new OrderPlaced
+    {
+        OrderId = orderId,
+        CorrelationId = correlationId,
+        CustomerId = request.CustomerId,
+        Items = request.Items,
+        TotalAmount = request.TotalAmount,
+        PlacedAt = DateTime.UtcNow
+    });
+
+    return Results.Created($"/orders/{orderId}", new { orderId, status = "Pending" });
+});
 
 app.Run();
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
+// Request body shape the customer sends
+record PlaceOrderRequest(string CustomerId, List<OrderItem> Items, decimal TotalAmount);
