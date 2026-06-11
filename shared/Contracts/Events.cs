@@ -34,6 +34,7 @@ public record StockReserved
 public record StockReleased
 {
     public Guid OrderId { get; init; }
+    public Guid CorrelationId { get; init; }
 }
 
 public record StockUnavailable
@@ -63,3 +64,6 @@ public record OrderCancelled
     public Guid CorrelationId { get; init; }
     public string Reason { get; init; }
 }
+
+
+

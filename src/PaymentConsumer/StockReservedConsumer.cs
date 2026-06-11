@@ -20,31 +20,29 @@ public class StockReservedConsumer : IConsumer<StockReserved>
             "PAYMENT received StockReserved — OrderId: {OrderId}, CorrelationId: {CorrelationId}",
             msg.OrderId, msg.CorrelationId);
 
-        // Decide if payment succeeds. For the demo, any order whose Id
-        // we can't process fails — but for now, simple rule: succeed,
-        // unless we deliberately simulate a decline (added later).
-        var paymentSucceeded = true;
+        
 
-        if (paymentSucceeded)
+      
+    var paymentFails = Environment.GetEnvironmentVariable("PAYMENT_FAILS") == "true";
+
+    if (!paymentFails)
+    {
+        _logger.LogInformation("PAYMENT succeeded for OrderId: {OrderId}", msg.OrderId);
+        await context.Publish(new PaymentSucceeded
         {
-            _logger.LogInformation("PAYMENT succeeded for OrderId: {OrderId}", msg.OrderId);
-
-            await context.Publish(new PaymentSucceeded
-            {
-                OrderId = msg.OrderId,
-                CorrelationId = msg.CorrelationId
-            });
-        }
-        else
-        {
-            _logger.LogWarning("PAYMENT failed for OrderId: {OrderId}", msg.OrderId);
-
-            await context.Publish(new PaymentFailed
-            {
-                OrderId = msg.OrderId,
-                CorrelationId = msg.CorrelationId,
-                Reason = "Card declined"
-            });
-        }
+            OrderId = msg.OrderId,
+            CorrelationId = msg.CorrelationId
+        });
     }
+    else
+    {
+        _logger.LogWarning("PAYMENT failed for OrderId: {OrderId}", msg.OrderId);
+        await context.Publish(new PaymentFailed
+        {
+            OrderId = msg.OrderId,
+            CorrelationId = msg.CorrelationId,
+            Reason = "Card declined"
+        });
+    }
+}
 }

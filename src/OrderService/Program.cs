@@ -11,6 +11,7 @@ builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<PaymentSucceededConsumer>();
     x.AddConsumer<StockUnavailableConsumer>();
+    x.AddConsumer<PaymentFailedConsumer>();
 
     x.UsingRabbitMq((context, cfg) =>
     {
