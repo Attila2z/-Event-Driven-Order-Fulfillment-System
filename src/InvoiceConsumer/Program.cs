@@ -1,4 +1,4 @@
-using NotificationConsumer;
+using InvoiceConsumer;
 using MassTransit;
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -6,7 +6,6 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<OrderConfirmedConsumer>();
-    x.AddConsumer<OrderCancelledConsumer>();
 
     x.UsingRabbitMq((context, cfg) =>
     {
@@ -16,11 +15,10 @@ builder.Services.AddMassTransit(x =>
             h.Password("guest");
         });
 
-        cfg.ReceiveEndpoint("notification-service", e =>
-  {
-      e.ConfigureConsumer<OrderConfirmedConsumer>(context);
-      e.ConfigureConsumer<OrderCancelledConsumer>(context);
-      });
+        cfg.ReceiveEndpoint("invoice-service", e =>
+        {
+            e.ConfigureConsumer<OrderConfirmedConsumer>(context);
+        });
     });
 });
 

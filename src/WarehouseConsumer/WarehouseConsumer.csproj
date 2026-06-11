@@ -4,7 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UserSecretsId>dotnet-NotificationConsumer-4fefe72a-beed-4665-9999-3edf1b56a1e6</UserSecretsId>
+    <UserSecretsId>dotnet-WarehouseConsumer-cf88d8e8-b501-43af-bdb0-d06e3f328051</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
