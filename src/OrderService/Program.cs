@@ -10,6 +10,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<PaymentSucceededConsumer>();
+    x.AddConsumer<StockUnavailableConsumer>();
 
     x.UsingRabbitMq((context, cfg) =>
     {
