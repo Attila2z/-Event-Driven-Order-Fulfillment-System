@@ -4,8 +4,11 @@ using StockConsumer;
 
 var builder = Host.CreateApplicationBuilder(args);
 
+var pgHost = Environment.GetEnvironmentVariable("POSTGRES_HOST") ?? "localhost";
+var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "localhost";
+
 builder.Services.AddDbContext<StockDbContext>(options =>
-    options.UseNpgsql("Host=localhost;Port=5432;Database=stockdb;Username=postgres;Password=postgres"));
+    options.UseNpgsql($"Host={pgHost};Port=5432;Database=stockdb;Username=postgres;Password=postgres"));
 
 builder.Services.AddMassTransit(x =>
 {
@@ -14,7 +17,7 @@ builder.Services.AddMassTransit(x =>
 
     x.UsingRabbitMq((context, cfg) =>
     {
-        cfg.Host("localhost", "/", h =>
+        cfg.Host(rabbitHost, "/", h =>
         {
             h.Username("guest");
             h.Password("guest");

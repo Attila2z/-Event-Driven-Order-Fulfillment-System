@@ -7,6 +7,11 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: guest
       RABBITMQ_DEFAULT_PASS: guest
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   postgres:
     image: postgres:16
@@ -17,27 +22,95 @@ services:
       POSTGRES_PASSWORD: postgres
     volumes:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   order-api:
-    build: ./src/OrderService
+    build:
+      context: .
+      dockerfile: src/OrderService/Dockerfile
     ports:
       - "5000:8080"
+    environment:
+      - RABBITMQ_HOST=rabbitmq
     depends_on:
-      - rabbitmq
-      - postgres
+      rabbitmq:
+        condition: service_healthy
 
   stock-consumer:
-    build: ./src/StockConsumer
+    build:
+      context: .
+      dockerfile: src/StockConsumer/Dockerfile
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - POSTGRES_HOST=postgres
     depends_on:
-      - rabbitmq
-      - postgres
+      rabbitmq:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  stub-payment-gateway:
+    build:
+      context: .
+      dockerfile: src/StubPaymentGateway/Dockerfile
+    ports:
+      - "9090:8080"
+    environment:
+      - PAYMENT_FAILS=false
 
   payment-consumer:
-    build: ./src/PaymentConsumer
+    build:
+      context: .
+      dockerfile: src/PaymentConsumer/Dockerfile
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+      - PAYMENT_GATEWAY_URL=http://stub-payment-gateway:8080
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy
+      stub-payment-gateway:
+        condition: service_started
+
+  invoice-consumer:
+    build:
+      context: .
+      dockerfile: src/InvoiceConsumer/Dockerfile
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  warehouse-consumer:
+    build:
+      context: .
+      dockerfile: src/WarehouseConsumer/Dockerfile
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  shipping-consumer:
+    build:
+      context: .
+      dockerfile: src/ShippingConsumer/Dockerfile
+    environment:
+      - RABBITMQ_HOST=rabbitmq
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
 
   notification-consumer:
-    build: ./src/NotificationConsumer
+    build:
+      context: .
+      dockerfile: src/NotificationConsumer/Dockerfile
+    environment:
+      - RABBITMQ_HOST=rabbitmq
     depends_on:
-      - rabbitmq
+      rabbitmq:
+        condition: service_healthy

@@ -6,10 +6,12 @@ namespace OrderService;
 public class PaymentSucceededConsumer : IConsumer<PaymentSucceeded>
 {
     private readonly ILogger<PaymentSucceededConsumer> _logger;
+    private readonly OrderStore _store;
 
-    public PaymentSucceededConsumer(ILogger<PaymentSucceededConsumer> logger)
+    public PaymentSucceededConsumer(ILogger<PaymentSucceededConsumer> logger, OrderStore store)
     {
         _logger = logger;
+        _store = store;
     }
 
     public async Task Consume(ConsumeContext<PaymentSucceeded> context)
@@ -20,13 +22,13 @@ public class PaymentSucceededConsumer : IConsumer<PaymentSucceeded>
             "ORDER received PaymentSucceeded — OrderId: {OrderId}, marking Confirmed",
             msg.OrderId);
 
-        // In a real system: update the order row status to "Confirmed" here.
+        var original = _store.Get(msg.OrderId);
 
         await context.Publish(new OrderConfirmed
         {
             OrderId = msg.OrderId,
             CorrelationId = msg.CorrelationId,
-            Items = new List<OrderItem>(), // see note below
+            Items = original?.Items ?? [],
             ConfirmedAt = DateTime.UtcNow
         });
 

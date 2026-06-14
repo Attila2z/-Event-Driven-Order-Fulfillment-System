@@ -7,6 +7,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddOpenApi();
 
 // --- MassTransit setup ---
+builder.Services.AddSingleton<OrderStore>();
+
+var rabbitHost = Environment.GetEnvironmentVariable("RABBITMQ_HOST") ?? "localhost";
+
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<PaymentSucceededConsumer>();
@@ -15,12 +19,12 @@ builder.Services.AddMassTransit(x =>
 
     x.UsingRabbitMq((context, cfg) =>
     {
-        cfg.Host("localhost", "/", h =>
+        cfg.Host(rabbitHost, "/", h =>
         {
             h.Username("guest");
             h.Password("guest");
         });
-         cfg.ConfigureEndpoints(context);
+        cfg.ConfigureEndpoints(context);
     });
 });
 
@@ -32,14 +36,12 @@ if (app.Environment.IsDevelopment())
 }
 
 // --- Place order endpoint ---
-app.MapPost("/orders", async (PlaceOrderRequest request, IPublishEndpoint publishEndpoint) =>
+app.MapPost("/orders", async (PlaceOrderRequest request, IPublishEndpoint publishEndpoint, OrderStore store) =>
 {
     var orderId = Guid.NewGuid();
     var correlationId = Guid.NewGuid();
 
-    // In a real system we'd persist the order as "Pending" here first.
-
-    await publishEndpoint.Publish(new OrderPlaced
+    var order = new OrderPlaced
     {
         OrderId = orderId,
         CorrelationId = correlationId,
@@ -47,18 +49,21 @@ app.MapPost("/orders", async (PlaceOrderRequest request, IPublishEndpoint publis
         Items = request.Items,
         TotalAmount = request.TotalAmount,
         PlacedAt = DateTime.UtcNow
-    });
+    };
+
+    store.Save(order);
+    await publishEndpoint.Publish(order);
 
     return Results.Created($"/orders/{orderId}", new { orderId, status = "Pending" });
 });
 
 // TEST ENDPOINT — publishes the same message twice with a fixed MessageId
 // to demonstrate idempotency (duplicate delivery). Remove for production.
-app.MapPost("/test/duplicate", async (IPublishEndpoint publishEndpoint) =>
+app.MapPost("/test/duplicate", async (IPublishEndpoint publishEndpoint, OrderStore store) =>
 {
     var orderId = Guid.NewGuid();
     var correlationId = Guid.NewGuid();
-    var fixedMessageId = Guid.NewGuid(); // same id used for both sends
+    var fixedMessageId = Guid.NewGuid();
 
     var order = new OrderPlaced
     {
@@ -70,7 +75,9 @@ app.MapPost("/test/duplicate", async (IPublishEndpoint publishEndpoint) =>
         PlacedAt = DateTime.UtcNow
     };
 
-    // Publish twice with the SAME MessageId
+    store.Save(order);
+
+    // Publish twice with the SAME MessageId to demonstrate idempotency
     await publishEndpoint.Publish(order, ctx => ctx.MessageId = fixedMessageId);
     await publishEndpoint.Publish(order, ctx => ctx.MessageId = fixedMessageId);
 
